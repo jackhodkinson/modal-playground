@@ -59,6 +59,7 @@ def load_problems() -> list[Problem]:
     return problems
 
 
+@app.function(image=image)
 def solve_problem(problem: Problem) -> Problem:
     print("Solving problem: ", problem.task_id)
 
@@ -70,10 +71,13 @@ def solve_problem(problem: Problem) -> Problem:
 
 @app.function(image=image, volumes={"/data": vol})
 def load_and_solve_problems() -> list[Problem]:
+    t0 = time.time()
     problems = load_problems()
-    # TODO: Parallelize this
-    results = [solve_problem(problem) for problem in problems]
+    results = list(solve_problem.map(problems))
     print(f"Solved all problems, got {len(results)} results")
+    # Solved all problems, got 1033 results
+    print(f"Time taken: {time.time() - t0}")
+    # Time taken: 298.5398268699646
 
 
 @app.local_entrypoint()
