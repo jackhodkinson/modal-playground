@@ -39,9 +39,7 @@ def download_model():
     volume.commit()
 
 
-image = modal.Image.debian_slim().pip_install(
-    "transformers==4.44.2", "accelerate", "torch"
-)
+image = modal.Image.debian_slim().pip_install("transformers", "accelerate", "torch")
 
 with image.imports():
     from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -49,12 +47,14 @@ with image.imports():
 
 @app.function(
     image=image,
-    gpu=modal.gpu.T4(count=1),
+    gpu=modal.gpu.L4(count=1),
+    volumes={MODELS_DIR: volume},
 )
 def run_model():
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
+    model_path = MODELS_DIR + "/" + MODEL_NAME
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True
+        model_path, trust_remote_code=True
     ).cuda()
     input_text = """<｜fim▁begin｜>def quick_sort(arr):
         if len(arr) <= 1:
@@ -85,5 +85,6 @@ def main():
     run_model.remote()
     t2 = time.time()
     print(f"Running deepseek-coder-1.3b-base complete in {t2 - t1} seconds")
+    # Running deepseek-coder-1.3b-base complete in 26.479429960250854 seconds
 
     print(f"Total time taken: {t2 - t0} seconds")
