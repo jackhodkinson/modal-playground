@@ -1,12 +1,12 @@
 import modal
 from fim_eval.app import app
-from fim_eval.constants import VOLUME_NAME, MODELS_DIR
+from fim_eval.constants import MODEL_VOLUME, MODELS_DIR
 import time
 
 DOWNLOAD_TIMEOUT = 4 * 60 * 60  # 4 hours (in seconds)
 
 
-volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
+volume = modal.Volume.from_name(MODEL_VOLUME, create_if_missing=True)
 
 download_image = (
     modal.Image.debian_slim(python_version="3.10")

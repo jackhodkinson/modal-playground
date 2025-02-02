@@ -1,9 +1,9 @@
 import time
 import modal
-from fim_eval.constants import VOLUME_NAME, MODELS_DIR
+from fim_eval.constants import MODEL_VOLUME, MODELS_DIR
 from fim_eval.app import app
 
-volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
+volume = modal.Volume.from_name(MODEL_VOLUME, create_if_missing=True)
 
 
 image = modal.Image.debian_slim().pip_install("transformers", "accelerate", "torch")
@@ -33,7 +33,7 @@ def run_with_transformers(model_name: str, prompt: str):
     print(f"Model loaded in {t2 - t1} seconds")
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    outputs = model.generate(**inputs, max_length=128)
+    outputs = model.generate(**inputs, max_length=1024)
     decoded_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
     completion = decoded_output[len(prompt) :]
     print(f"Completion: ===\n{completion}\n===")
