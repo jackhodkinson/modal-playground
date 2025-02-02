@@ -1,4 +1,5 @@
 import time
+
 import modal
 
 from fim_eval.constants import MODEL_VOLUME, MODELS_DIR
@@ -19,9 +20,12 @@ with image.imports():
     gpu=modal.gpu.L4(count=1),
     volumes={MODELS_DIR: volume},
 )
-def run_with_vllm(model_name: str, prompt: str):
+def run_with_vllm(model_name: str, prompts: list[str]):
     print(f"Running {model_name}")
     t0 = time.time()
+
+    num_prompts = len(prompts)
+    print(f"Running {num_prompts} prompts")
 
     sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
     model_path = MODELS_DIR + "/" + model_name
@@ -29,11 +33,15 @@ def run_with_vllm(model_name: str, prompt: str):
     t1 = time.time()
     print(f"Model loaded in {t1 - t0} seconds")
 
-    outputs = llm.generate([prompt], sampling_params)
-    print(outputs[0].outputs[0].text)
+    outputs = llm.generate(prompts, sampling_params)
+    # for i, output in enumerate(outputs):
+    #     output_text = output.outputs[0].text
+    #     print(f"Completion [{i}/{num_prompts}]: ===\n{output_text}\n===")
 
     t2 = time.time()
     print(f"Inference complete in {t2 - t1} seconds")
 
     t3 = time.time()
     print(f"Total time taken to run {model_name}: {t3 - t0} seconds")
+
+    return [o.outputs[0].text for o in outputs]
