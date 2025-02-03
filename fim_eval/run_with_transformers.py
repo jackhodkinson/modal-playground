@@ -39,10 +39,11 @@ def run_with_transformers(model_name: str, prompts: list[str]) -> list[str]:
     completions = []
     for i, p in enumerate(prompts):
         inputs = tokenizer(p, return_tensors="pt").to(model.device)
-        outputs = model.generate(**inputs, max_length=512)
+        outputs = model.generate(**inputs, max_length=512, temperature=0.1, top_p=0.95)
         decoded_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
         completion = decoded_output[len(p) :]
         print(f"Completion [{i}/{num_prompts}]: ===\n{completion}\n===")
+        completions.append(completion)
 
     t4 = time.time()
     print(f"Total time taken to run {model_name}: {t4 - t0} seconds")

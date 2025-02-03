@@ -18,6 +18,7 @@ with image.imports():
 @app.function(
     image=image,
     gpu=modal.gpu.L4(count=1),
+    # gpu=modal.gpu.L40S(count=1),
     volumes={MODELS_DIR: volume},
 )
 def run_with_vllm(model_name: str, prompts: list[str]):
@@ -27,9 +28,9 @@ def run_with_vllm(model_name: str, prompts: list[str]):
     num_prompts = len(prompts)
     print(f"Running {num_prompts} prompts")
 
-    sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
+    sampling_params = SamplingParams(temperature=0.1, top_p=0.95, max_tokens=512)
     model_path = MODELS_DIR + "/" + model_name
-    llm = LLM(model=model_path)
+    llm = LLM(model=model_path, trust_remote_code=True)
     t1 = time.time()
     print(f"Model loaded in {t1 - t0} seconds")
 
