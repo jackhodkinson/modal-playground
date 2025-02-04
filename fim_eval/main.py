@@ -11,10 +11,11 @@ from fim_eval.constants import DATA_DIR, EVAL_VOLUME
 from fim_eval.load_problems import load_problems, Problem
 from fim_eval.result import Result
 from fim_eval.run_with_vllm import run_with_vllm
-from fim_eval.run_with_transformers import run_with_transformers
+# from fim_eval.run_with_transformers import run_with_transformers
 
-MODEL_NAME = "deepseek-ai/deepseek-coder-1.3b-base"
-# MODEL_NAME = "deepseek-ai/DeepSeek-Coder-V2-Lite-Base"
+SAMPLES_PER_PROBLEM = 5
+# MODEL_NAME = "deepseek-ai/deepseek-coder-1.3b-base"
+MODEL_NAME = "deepseek-ai/DeepSeek-Coder-V2-Lite-Base"
 
 prompt = """<｜fim▁begin｜>def quick_sort(arr):
     if len(arr) <= 1:
@@ -45,7 +46,11 @@ def main():
             f.write(line + "\n")
 
 
-image = modal.Image.debian_slim().pip_install("requests", "pydantic")
+image = (
+    modal.Image.debian_slim()
+    .pip_install("requests", "pydantic")
+    .add_local_python_source("fim_eval")
+)
 
 vol = modal.Volume.from_name(EVAL_VOLUME, create_if_missing=True)
 
@@ -54,12 +59,19 @@ def construct_prompt(problem: Problem) -> str:
     return f"<｜fim▁begin｜>{problem.prompt}<｜fim▁hole｜>{problem.suffix}<｜fim▁end｜>"
 
 
-@app.function(image=image, volumes={DATA_DIR: vol})
+@app.function(image=image, volumes={DATA_DIR: vol}, timeout=1200)
 def load_and_solve_problems() -> list[Result]:
     t0 = time.time()
     problems: list[Problem] = load_problems()
 
-    prompts = [construct_prompt(problem) for problem in problems[:50]]
+    prompts = [construct_prompt(problem) for problem in problems]
+
+    # multiple samples per prompt to account for temperature effects
+    prompts = [prompt for prompt in prompts for _ in range(SAMPLES_PER_PROBLEM)]
+    repeated_problems = [
+        problem for problem in problems for _ in range(SAMPLES_PER_PROBLEM)
+    ]
+
     # Running with vanilla transformers is too slow
     # completions = run_with_transformers.remote(MODEL_NAME, prompts)
     # 23.75 seconds (10 problems)
@@ -67,14 +79,13 @@ def load_and_solve_problems() -> list[Result]:
     # Timed out at 300s (100 problems)
 
     # Running with vllm is faster
-    # TODO: Adjust temperature and run multiple attempts per prompt
     completions = run_with_vllm.remote(MODEL_NAME, prompts)
     # 35.16 seconds (10 problems)
     # 35.31 seconds (100 problems)
 
     results = [
         Result(task_id=problem.task_id, completion=completion)
-        for problem, completion in zip(problems, completions)
+        for problem, completion in zip(repeated_problems, completions)
     ]
 
     # Write to a volume

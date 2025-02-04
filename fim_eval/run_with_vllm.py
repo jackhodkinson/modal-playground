@@ -17,9 +17,9 @@ with image.imports():
 
 @app.function(
     image=image,
-    gpu=modal.gpu.L4(count=1),
-    # gpu=modal.gpu.L40S(count=1),
+    gpu=modal.gpu.A100(count=1, size="80GB"),
     volumes={MODELS_DIR: volume},
+    timeout=1200,
 )
 def run_with_vllm(model_name: str, prompts: list[str]):
     print(f"Running {model_name}")
@@ -35,9 +35,6 @@ def run_with_vllm(model_name: str, prompts: list[str]):
     print(f"Model loaded in {t1 - t0} seconds")
 
     outputs = llm.generate(prompts, sampling_params)
-    # for i, output in enumerate(outputs):
-    #     output_text = output.outputs[0].text
-    #     print(f"Completion [{i}/{num_prompts}]: ===\n{output_text}\n===")
 
     t2 = time.time()
     print(f"Inference complete in {t2 - t1} seconds")

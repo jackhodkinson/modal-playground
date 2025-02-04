@@ -15,7 +15,8 @@ from fim_eval.execution import check_correctness
 from fim_eval.load_problems import Problem
 from fim_eval.result import Result as Sample
 
-MAX_WORKERS = 8
+MAX_WORKERS = 16
+K = [1, 3, 5]
 
 console = Console()
 
@@ -101,33 +102,54 @@ if __name__ == "__main__":
     problem_by_id = {problem.task_id: problem for problem in problems}
 
     results_by_id = defaultdict(list)
+    flat_results = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = []
-        for sample in samples:
+        for i, sample in enumerate(samples):
             future = executor.submit(
                 check_correctness,
                 problem_by_id[sample.task_id].model_dump(),
                 sample.completion,
                 10,
+                completion_id=i,
             )
             futures.append(future)
 
         for future in tqdm.tqdm(as_completed(futures), total=len(futures)):
             task_id = future.result()["task_id"]
             results_by_id[task_id].append(future.result())
+            flat_results.append(future.result())
 
-    # flatten results
-    results = [result for results in results_by_id.values() for result in results]
-    print(f"Accuracy: {sum(result['passed'] for result in results) / len(results)}")
+    passed = sum(result["passed"] for result in flat_results)
+    print(f"Accuracy: {passed / len(flat_results)} = {passed} / {len(flat_results)}")
+
+    # Debug some number of failed results
+    # num_failed = 0
+    # for result in flat_results:
+    #     if not result["passed"]:
+    #         sample = samples[result["completion_id"]]
+    #         print(f"task id failed: {result['task_id']}")
+    #         num_failed += 1
+    #         problem = problem_by_id[result["task_id"]]
+    #         console.print(
+    #             "-" * 30,
+    #             "\n",
+    #             f"{problem.prompt}[yellow on grey23]{sample.completion}[/yellow on grey23]{problem.suffix}",
+    #             "\n",
+    #             "-" * 30,
+    #         )
+    #     if num_failed >= 10:
+    #         break
 
     num_attempts_per_problem = [len(results) for results in results_by_id.values()]
     num_successes_per_problem = [
         sum(result["passed"] for result in results)
         for results in results_by_id.values()
     ]
-    pass_at_k = estimate_pass_at_k(
-        num_attempts_per_problem,
-        num_successes_per_problem,
-        k=1,
-    ).mean()
-    print(f"Pass@1: {pass_at_k}")
+    for k in K:
+        pass_at_k = estimate_pass_at_k(
+            num_attempts_per_problem,
+            num_successes_per_problem,
+            k=k,
+        ).mean()
+        print(f"Pass@{k}: {pass_at_k}")
